@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { FileBarChart, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 export default function ReportsPage() {
   const [reportData, setReportData] = useState<any[]>([]);
@@ -64,7 +64,7 @@ export default function ReportsPage() {
   };
 
   const exportPDF = () => {
-    const doc = new jsPDF() as any;
+    const doc = new jsPDF();
     doc.text('FFFDMS Executive Fuel Audit Report', 14, 15);
     const tableColumn = ['Date', 'Plate', 'Driver', 'Station', 'Liters', 'Cost ($)', 'Risk'];
     const tableRows = reportData.map((r) => [
@@ -77,7 +77,7 @@ export default function ReportsPage() {
       r.riskLevel,
     ]);
 
-    doc.autoTable({
+    autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 20,

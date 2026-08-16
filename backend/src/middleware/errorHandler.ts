@@ -2,6 +2,15 @@ import { Request, Response, NextFunction } from 'express';
 import { AppError, ValidationError } from '../utils/errors';
 
 export const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunction): void => {
+  // Handle CORS policy errors
+  if (err.message && err.message.startsWith('CORS policy')) {
+    res.status(403).json({
+      success: false,
+      message: err.message,
+    });
+    return;
+  }
+
   // Handle Mongoose duplicate key error
   if ((err as any).code === 11000) {
     const field = Object.keys((err as any).keyValue || {})[0];
