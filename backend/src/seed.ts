@@ -22,42 +22,19 @@ import {
 
 async function seed() {
   await connectDB();
-  console.log('🌱 Cleaning old database collections and schemas for FFFDMS v2...');
+  console.log('🌱 Seeding database for FFFDMS v2...');
 
-  // Drop old indexes or collections to remove obsolete unique constraints (e.g., driver.userId_1)
-  const collections = [
-    'users',
-    'drivers',
-    'vehicles',
-    'fuelrequests',
-    'fueltransactions',
-    'fraudrules',
-    'notifications',
-    'auditlogs',
-  ];
-
-  for (const colName of collections) {
-    try {
-      const col = Driver.db.collection(colName);
-      await col.drop();
-      console.log(`🧹 Dropped collection & indexes for '${colName}'`);
-    } catch (e: any) {
-      // Ignore ns not found if collection doesn't exist yet
-    }
-  }
-
-  // Ensure fresh indexes from current mongoose schemas
+  // Clear existing data
   await Promise.all([
-    User.syncIndexes(),
-    Driver.syncIndexes(),
-    Vehicle.syncIndexes(),
-    FuelRequest.syncIndexes(),
-    FuelTransaction.syncIndexes(),
-    FraudRule.syncIndexes(),
-    Notification.syncIndexes(),
-    AuditLog.syncIndexes(),
+    User.deleteMany({}),
+    Driver.deleteMany({}),
+    Vehicle.deleteMany({}),
+    FuelRequest.deleteMany({}),
+    FuelTransaction.deleteMany({}),
+    FraudRule.deleteMany({}),
+    Notification.deleteMany({}),
+    AuditLog.deleteMany({}),
   ]);
-  console.log('✨ Synced fresh indexes for all collections');
 
   // 1. Create Admin/Owner
   const ownerHash = await bcrypt.hash(config.owner.password, 12);
@@ -69,9 +46,9 @@ async function seed() {
     isActive: true,
     mustChangePassword: false,
   });
-  console.log(`✅ Owner / Admin Created: ${config.owner.username} / ${config.owner.password}`);
+  console.log(`✅ Owner: ${config.owner.username} / ${config.owner.password}`);
 
-  // 2. Create Monitor (Operational User)
+  // 2. Create Monitor (Operational Users)
   const monitorHash = await bcrypt.hash('Monitor@12345', 12);
   const monitor = await User.create({
     username: 'monitor01',
@@ -81,7 +58,17 @@ async function seed() {
     isActive: true,
     mustChangePassword: false,
   });
-  console.log(`✅ Monitor Created: monitor01 / Monitor@12345`);
+
+  // Also create 'monitor' username for convenience
+  await User.create({
+    username: 'monitor',
+    fullName: 'Monitor Dispatch',
+    passwordHash: monitorHash,
+    role: UserRole.MONITOR,
+    isActive: true,
+    mustChangePassword: false,
+  });
+  console.log(`✅ Monitor Accounts: monitor01 / Monitor@12345 and monitor / Monitor@12345`);
 
   // 3. Create Fraud Rules
   const fraudRules = [
@@ -477,19 +464,10 @@ async function seed() {
 
   console.log('✅ 3 completed fuel transactions created');
   console.log('✅ 2 notifications created');
-  console.log('\n========================================');
-  console.log('🎉 Seed & Database Reset Complete for FFFDMS v2!');
-  console.log('========================================');
-  console.log('🔑 Admin Login:');
-  console.log('   Username: admin');
-  console.log('   Password: Admin@12345');
-  console.log('');
-  console.log('🔑 Monitor Login:');
-  console.log('   Username: monitor01');
-  console.log('   Password: Monitor@12345');
-  console.log('');
-  console.log('🚗 Drivers: 5 managed entities (no login required)');
-  console.log('========================================\n');
+  console.log('\n🎉 Seed complete for FFFDMS v2!\n');
+  console.log('Owner / Admin Login: admin / Admin@12345');
+  console.log('Monitor Login: monitor01 / Monitor@12345');
+  console.log('Drivers: 5 managed entities (no login required)\n');
   process.exit(0);
 }
 

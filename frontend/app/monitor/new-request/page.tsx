@@ -14,6 +14,7 @@ import {
   User,
   Calculator,
   ArrowRight,
+  Sparkles,
 } from 'lucide-react';
 
 export default function NewFuelRequestPage() {
@@ -36,12 +37,14 @@ export default function NewFuelRequestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [autoFilledVehicle, setAutoFilledVehicle] = useState<string | null>(null);
 
   // Selected vehicle info
   const selectedVehicle = vehicles.find((v) => v._id === formData.vehicleId);
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoadingInitial(true);
       try {
         const [drvRes, vehRes] = await Promise.all([
           api.get('/drivers?status=ACTIVE'),
@@ -49,8 +52,9 @@ export default function NewFuelRequestPage() {
         ]);
         setDrivers(drvRes.data.data || []);
         setVehicles(vehRes.data.data || []);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load form dependencies:', err);
+        setError(err.response?.data?.message || 'Failed to load drivers and vehicles');
       } finally {
         setLoadingInitial(false);
       }
@@ -58,14 +62,34 @@ export default function NewFuelRequestPage() {
     fetchData();
   }, []);
 
-  // When driver changes, auto-select their assigned vehicle if any
+  // When driver changes, auto-select their assigned vehicle and fuel type
   const handleDriverChange = (driverId: string) => {
     const driver = drivers.find((d) => d._id === driverId);
+    if (!driver) {
+      setFormData((prev) => ({ ...prev, driverId: '' }));
+      setAutoFilledVehicle(null);
+      return;
+    }
+
+    const assignedVehId =
+      typeof driver.assignedVehicleId === 'object' && driver.assignedVehicleId !== null
+        ? driver.assignedVehicleId._id
+        : driver.assignedVehicleId;
+
+    const matchedVehicle = vehicles.find((v) => v._id === assignedVehId);
+
     setFormData((prev) => ({
       ...prev,
       driverId,
-      vehicleId: driver?.assignedVehicleId?._id || driver?.assignedVehicleId || prev.vehicleId,
+      vehicleId: assignedVehId || prev.vehicleId,
+      fuelType: matchedVehicle?.fuelType || prev.fuelType,
     }));
+
+    if (matchedVehicle) {
+      setAutoFilledVehicle(`${matchedVehicle.plateNumber} (${matchedVehicle.vehicleName})`);
+    } else {
+      setAutoFilledVehicle(null);
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,6 +117,16 @@ export default function NewFuelRequestPage() {
     e.preventDefault();
     setError('');
 
+    if (!formData.driverId) {
+      setError('Please select a driver');
+      return;
+    }
+
+    if (!formData.vehicleId) {
+      setError('Please select a vehicle');
+      return;
+    }
+
     if (!odometerFile) {
       setError('Odometer image photo is mandatory. Please capture or upload a clear photo of the dashboard.');
       return;
@@ -115,7 +149,7 @@ export default function NewFuelRequestPage() {
       data.append('odometerReading', formData.odometerReading);
       data.append('odometerImage', odometerFile);
 
-      const res = await api.post('/fuel-requests', data, {
+      await api.post('/fuel-requests', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -139,7 +173,7 @@ export default function NewFuelRequestPage() {
             <span>Phase 1 — Pre-Fueling Authorization Request</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Submit vehicle odometer evidence and requested liters to the Admin for approval prior to fueling.
+            Select a managed driver, verify the assigned vehicle and current odometer, and attach odometer photo evidence.
           </p>
         </div>
 
@@ -161,40 +195,70 @@ export default function NewFuelRequestPage() {
           {/* Driver & Vehicle Select */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
-              <label className="block font-medium text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Select Driver</span>
+              <label className="block font-medium text-slate-300 mb-1.5 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Select Managed Driver *</span>
+                </span>
+                {drivers.length > 0 && (
+                  <span className="text-[10px] text-slate-500">{drivers.length} drivers available</span>
+                )}
               </label>
-              <select
-                required
-                value={formData.driverId}
-                onChange={(e) => handleDriverChange(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500/50"
-              >
-                <option value="">Choose managed driver...</option>
-                {drivers.map((d) => (
-                  <option key={d._id} value={d._id}>
-                    {d.fullName} ({d.licenseNumber})
-                  </option>
-                ))}
-              </select>
+
+              {loadingInitial ? (
+                <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-500 text-xs">
+                  Loading driver roster...
+                </div>
+              ) : drivers.length === 0 ? (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs">
+                  No active drivers found. Please check database seed or add drivers.
+                </div>
+              ) : (
+                <select
+                  required
+                  value={formData.driverId}
+                  onChange={(e) => handleDriverChange(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500/50"
+                >
+                  <option value="">Choose driver to request fuel for...</option>
+                  {drivers.map((d) => (
+                    <option key={d._id} value={d._id}>
+                      {d.fullName} — {d.phoneNumber} ({d.assignedVehicleId?.plateNumber ? `Vehicle: ${d.assignedVehicleId.plateNumber}` : 'No vehicle'})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div>
-              <label className="block font-medium text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <Truck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Select Fleet Vehicle</span>
+              <label className="block font-medium text-slate-300 mb-1.5 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Truck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Assigned Fleet Vehicle *</span>
+                </span>
+                {autoFilledVehicle && (
+                  <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    <span>Auto-filled from Driver</span>
+                  </span>
+                )}
               </label>
+
               <select
                 required
                 value={formData.vehicleId}
-                onChange={(e) => setFormData({ ...formData, vehicleId: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500/50"
+                onChange={(e) => {
+                  setFormData((prev) => ({ ...prev, vehicleId: e.target.value }));
+                  setAutoFilledVehicle(null);
+                }}
+                className={`w-full bg-slate-950 border rounded-xl p-3 text-sm text-slate-100 focus:outline-none ${
+                  autoFilledVehicle ? 'border-emerald-500/40 bg-emerald-950/10' : 'border-slate-800 focus:border-emerald-500/50'
+                }`}
               >
                 <option value="">Choose vehicle...</option>
                 {vehicles.map((v) => (
                   <option key={v._id} value={v._id}>
-                    {v.plateNumber} — {v.vehicleName} (Prev: {v.currentOdometer?.toLocaleString()} km)
+                    {v.plateNumber} — {v.vehicleName} ({v.brand}, {v.fuelType}, Odo: {v.currentOdometer?.toLocaleString()} km)
                   </option>
                 ))}
               </select>
@@ -216,7 +280,7 @@ export default function NewFuelRequestPage() {
             </div>
 
             <div>
-              <label className="block font-medium text-slate-300 mb-1.5">Requested Liters (L)</label>
+              <label className="block font-medium text-slate-300 mb-1.5">Requested Volume (Liters)</label>
               <input
                 type="number"
                 step="0.1"
@@ -225,7 +289,7 @@ export default function NewFuelRequestPage() {
                 placeholder="e.g. 45"
                 value={formData.fuelQuantity}
                 onChange={(e) => setFormData({ ...formData, fuelQuantity: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 font-mono font-bold"
               />
             </div>
 
@@ -239,7 +303,7 @@ export default function NewFuelRequestPage() {
                 placeholder="72.50"
                 value={formData.pricePerLiter}
                 onChange={(e) => setFormData({ ...formData, pricePerLiter: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 font-mono"
               />
             </div>
           </div>
@@ -248,20 +312,20 @@ export default function NewFuelRequestPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs pt-4 border-t border-slate-800">
             <div>
               <label className="block font-medium text-slate-300 mb-1.5">
-                Current Vehicle Odometer Reading (km)
+                Current Vehicle Odometer Reading (km) *
               </label>
               <input
                 type="number"
                 min={prevOdo}
                 required
-                placeholder={prevOdo ? `e.g. ${prevOdo + 100}` : 'e.g. 45300'}
+                placeholder={prevOdo ? `Must be >= ${prevOdo} km` : 'e.g. 45300'}
                 value={formData.odometerReading}
                 onChange={(e) => setFormData({ ...formData, odometerReading: e.target.value })}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 font-mono font-bold placeholder-slate-600 focus:outline-none focus:border-emerald-500/50"
               />
               {selectedVehicle && (
                 <p className="text-[11px] text-slate-500 mt-1.5">
-                  Last known reading: <span className="font-mono text-slate-300 font-medium">{prevOdo.toLocaleString()} km</span>.
+                  Vehicle base reading: <span className="font-mono text-slate-300 font-medium">{prevOdo.toLocaleString()} km</span>.
                   {distance > 0 && <span className="text-emerald-400 font-medium ml-1">({distance} km traveled)</span>}
                 </p>
               )}
@@ -270,7 +334,7 @@ export default function NewFuelRequestPage() {
               <div className="mt-4 p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
                 <div className="flex items-center space-x-1.5 text-slate-300 font-semibold text-[11px]">
                   <Calculator className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Preliminary Estimate</span>
+                  <span>Preliminary Review Estimates</span>
                 </div>
                 <div className="flex justify-between text-[11px] text-slate-400">
                   <span>Estimated Total Amount:</span>
@@ -341,7 +405,7 @@ export default function NewFuelRequestPage() {
             </button>
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || loadingInitial}
               className="flex items-center space-x-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-emerald-500/10 disabled:opacity-50"
             >
               {submitting ? (
