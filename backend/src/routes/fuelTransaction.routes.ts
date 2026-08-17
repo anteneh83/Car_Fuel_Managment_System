@@ -8,8 +8,13 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', authorize(UserRole.OWNER), FuelTransactionController.getAll);
-router.get('/my', authorize(UserRole.DRIVER), FuelTransactionController.getMyTransactions);
-router.post('/', authorize(UserRole.DRIVER), uploadReceipt.single('receiptImage'), FuelTransactionController.create);
+router.get('/my', authorize(UserRole.MONITOR), FuelTransactionController.getMyTransactions);
+router.post(
+  '/',
+  authorize(UserRole.MONITOR),
+  uploadReceipt.single('receiptImage'),
+  FuelTransactionController.create
+);
 router.get('/:id', FuelTransactionController.getById);
 router.patch('/:id/review', authorize(UserRole.OWNER), FuelTransactionController.review);
 router.patch('/:id/investigate', authorize(UserRole.OWNER), FuelTransactionController.investigate);

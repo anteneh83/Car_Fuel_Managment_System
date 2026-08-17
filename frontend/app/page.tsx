@@ -17,7 +17,7 @@ export default function HomePage() {
       } else if (user.role === 'OWNER') {
         router.push('/owner/dashboard');
       } else {
-        router.push('/driver/dashboard');
+        router.push('/monitor/dashboard');
       }
     }
   }, [user, loading, router]);

@@ -1,5 +1,10 @@
 import { Router } from 'express';
-import { DashboardController, NotificationController, AuditLogController, FraudRuleController } from '../controllers/dashboard.controller';
+import {
+  DashboardController,
+  NotificationController,
+  AuditLogController,
+  FraudRuleController,
+} from '../controllers/dashboard.controller';
 import { FuelTransactionController } from '../controllers/fuelTransaction.controller';
 import { authenticate, authorize } from '../middleware/auth';
 import { UserRole } from '../types';
@@ -14,7 +19,7 @@ dashboardRoutes.get('/driver-usage', authorize(UserRole.OWNER), DashboardControl
 dashboardRoutes.get('/station-usage', authorize(UserRole.OWNER), DashboardController.getStationUsage);
 dashboardRoutes.get('/risk-distribution', authorize(UserRole.OWNER), DashboardController.getRiskDistribution);
 dashboardRoutes.get('/consumption-trend', authorize(UserRole.OWNER), DashboardController.getConsumptionTrend);
-dashboardRoutes.get('/driver-summary', authorize(UserRole.DRIVER), DashboardController.getDriverDashboard);
+dashboardRoutes.get('/monitor-summary', authorize(UserRole.MONITOR), DashboardController.getMonitorDashboard);
 
 // Fraud routes
 export const fraudRoutes = Router();

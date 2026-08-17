@@ -6,16 +6,16 @@ import { api } from '@/lib/api';
 
 export enum UserRole {
   OWNER = 'OWNER',
-  DRIVER = 'DRIVER',
+  MONITOR = 'MONITOR',
 }
 
 export interface User {
   _id: string;
   username: string;
+  fullName?: string;
   role: UserRole;
-  driverId?: string;
+  monitorId?: string;
   mustChangePassword?: boolean;
-  driver?: any;
 }
 
 interface AuthContextType {
@@ -31,15 +31,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = RouterHook();
-
-  function RouterHook() {
-    try {
-      return useRouter();
-    } catch {
-      return null;
-    }
-  }
+  const router = useRouter();
 
   useEffect(() => {
     const initAuth = async () => {
@@ -64,14 +56,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(userData);
 
     if (mustChangePassword) {
-      if (router) router.push('/change-password');
-      else window.location.href = '/change-password';
+      router.push('/change-password');
     } else if (userData.role === UserRole.OWNER) {
-      if (router) router.push('/owner/dashboard');
-      else window.location.href = '/owner/dashboard';
+      router.push('/owner/dashboard');
     } else {
-      if (router) router.push('/driver/dashboard');
-      else window.location.href = '/driver/dashboard';
+      router.push('/monitor/dashboard');
     }
   };
 
@@ -84,8 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setUser(null);
-      if (router) router.push('/login');
-      else window.location.href = '/login';
+      router.push('/login');
     }
   };
 

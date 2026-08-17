@@ -11,8 +11,10 @@ export interface IReceiptImage {
 }
 
 export interface IFuelTransaction extends Document {
+  fuelRequestId: mongoose.Types.ObjectId;
   vehicleId: mongoose.Types.ObjectId;
   driverId: mongoose.Types.ObjectId;
+  monitorId: mongoose.Types.ObjectId;
   fuelStationName: string;
   fuelType: FuelType;
   fuelQuantity: number;
@@ -54,6 +56,11 @@ const ReceiptImageSchema = new Schema<IReceiptImage>(
 
 const FuelTransactionSchema = new Schema<IFuelTransaction>(
   {
+    fuelRequestId: {
+      type: Schema.Types.ObjectId,
+      ref: 'FuelRequest',
+      required: true,
+    },
     vehicleId: {
       type: Schema.Types.ObjectId,
       ref: 'Vehicle',
@@ -62,6 +69,11 @@ const FuelTransactionSchema = new Schema<IFuelTransaction>(
     driverId: {
       type: Schema.Types.ObjectId,
       ref: 'Driver',
+      required: true,
+    },
+    monitorId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       required: true,
     },
     fuelStationName: {
@@ -172,8 +184,10 @@ const FuelTransactionSchema = new Schema<IFuelTransaction>(
   { timestamps: true }
 );
 
+FuelTransactionSchema.index({ fuelRequestId: 1 });
 FuelTransactionSchema.index({ vehicleId: 1, fuelDate: 1 });
 FuelTransactionSchema.index({ driverId: 1, fuelDate: 1 });
+FuelTransactionSchema.index({ monitorId: 1 });
 FuelTransactionSchema.index({ receiptNumber: 1 });
 FuelTransactionSchema.index({ riskScore: -1 });
 FuelTransactionSchema.index({ reviewStatus: 1 });

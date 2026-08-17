@@ -4,8 +4,8 @@ import { UserRole } from '../types';
 export interface IUser extends Document {
   username: string;
   passwordHash: string;
+  fullName: string;
   role: UserRole;
-  driverId?: mongoose.Types.ObjectId;
   isActive: boolean;
   mustChangePassword: boolean;
   lastLoginAt?: Date;
@@ -27,15 +27,15 @@ const UserSchema = new Schema<IUser>(
       required: true,
       select: false, // Never return password hash by default
     },
+    fullName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     role: {
       type: String,
       enum: Object.values(UserRole),
       required: true,
-    },
-    driverId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Driver',
-      default: null,
     },
     isActive: {
       type: Boolean,

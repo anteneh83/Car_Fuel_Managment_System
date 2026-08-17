@@ -2,7 +2,7 @@ import { Request } from 'express';
 
 export enum UserRole {
   OWNER = 'OWNER',
-  DRIVER = 'DRIVER',
+  MONITOR = 'MONITOR',
 }
 
 export enum DriverStatus {
@@ -20,6 +20,12 @@ export enum VehicleStatus {
 export enum FuelType {
   PETROL = 'PETROL',
   DIESEL = 'DIESEL',
+}
+
+export enum FuelRequestStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
 }
 
 export enum TransactionStatus {
@@ -50,6 +56,9 @@ export enum AuditAction {
   VEHICLE_CREATED = 'VEHICLE_CREATED',
   VEHICLE_UPDATED = 'VEHICLE_UPDATED',
   VEHICLE_ARCHIVED = 'VEHICLE_ARCHIVED',
+  FUEL_REQUEST_CREATED = 'FUEL_REQUEST_CREATED',
+  FUEL_REQUEST_APPROVED = 'FUEL_REQUEST_APPROVED',
+  FUEL_REQUEST_REJECTED = 'FUEL_REQUEST_REJECTED',
   FUEL_TRANSACTION_CREATED = 'FUEL_TRANSACTION_CREATED',
   FUEL_TRANSACTION_REVIEWED = 'FUEL_TRANSACTION_REVIEWED',
   FUEL_TRANSACTION_INVESTIGATED = 'FUEL_TRANSACTION_INVESTIGATED',
@@ -66,13 +75,16 @@ export enum NotificationType {
   DUPLICATE_RECEIPT = 'DUPLICATE_RECEIPT',
   MONTHLY_THRESHOLD_EXCEEDED = 'MONTHLY_THRESHOLD_EXCEEDED',
   CONSUMPTION_INCREASE = 'CONSUMPTION_INCREASE',
+  FUEL_REQUEST_SUBMITTED = 'FUEL_REQUEST_SUBMITTED',
+  FUEL_REQUEST_APPROVED = 'FUEL_REQUEST_APPROVED',
+  FUEL_REQUEST_REJECTED = 'FUEL_REQUEST_REJECTED',
 }
 
 export interface JWTPayload {
   userId: string;
   username: string;
   role: UserRole;
-  driverId?: string;
+  monitorId?: string;
 }
 
 export interface AuthRequest extends Request {

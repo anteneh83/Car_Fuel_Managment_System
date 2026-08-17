@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { OwnerLayout } from '@/components/layout/OwnerLayout';
 import { api } from '@/lib/api';
-import { Users, UserPlus, Search, Copy, Check, ShieldAlert } from 'lucide-react';
+import { Users, UserPlus, Search, ShieldCheck } from 'lucide-react';
 
 export default function DriversPage() {
   const [drivers, setDrivers] = useState<any[]>([]);
@@ -11,9 +11,6 @@ export default function DriversPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [showCredsModal, setShowCredsModal] = useState(false);
-  const [createdCreds, setCreatedCreds] = useState<any>(null);
-  const [copied, setCopied] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -29,8 +26,8 @@ export default function DriversPage() {
         api.get(`/drivers?search=${search}`),
         api.get('/vehicles/active'),
       ]);
-      setDrivers(drvRes.data.data);
-      setVehicles(vehRes.data.data);
+      setDrivers(drvRes.data.data || []);
+      setVehicles(vehRes.data.data || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -46,10 +43,8 @@ export default function DriversPage() {
     e.preventDefault();
     setError('');
     try {
-      const res = await api.post('/drivers', formData);
+      await api.post('/drivers', formData);
       setShowModal(false);
-      setCreatedCreds(res.data.data);
-      setShowCredsModal(true);
       setFormData({ fullName: '', phoneNumber: '', licenseNumber: '', assignedVehicleId: '' });
       fetchDriversAndVehicles();
     } catch (err: any) {
@@ -67,14 +62,6 @@ export default function DriversPage() {
     }
   };
 
-  const copyCredentials = () => {
-    if (!createdCreds) return;
-    const text = `FFFDMS Driver Login Credentials\nUsername: ${createdCreds.credentials.username}\nTemporary Password: ${createdCreds.credentials.tempPassword}`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
     <OwnerLayout>
       <div className="space-y-6">
@@ -84,14 +71,16 @@ export default function DriversPage() {
               <Users className="w-6 h-6 text-amber-500" />
               <span>Fleet Drivers</span>
             </h1>
-            <p className="text-xs text-slate-400 mt-1">Manage personnel, vehicle assignments, and credentials</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Managed fleet personnel records (represented by Monitor in all fuel transactions; no login accounts)
+            </p>
           </div>
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center space-x-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-sm transition-all"
           >
             <UserPlus className="w-4 h-4" />
-            <span>Create New Driver</span>
+            <span>Add New Driver</span>
           </button>
         </div>
 
@@ -108,18 +97,17 @@ export default function DriversPage() {
         </div>
 
         {/* Driver List */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
           {loading ? (
-            <div className="p-8 text-center text-slate-500 text-sm">Loading driver roster...</div>
+            <div className="p-8 text-center text-slate-500 text-sm">Loading driver records...</div>
           ) : drivers.length === 0 ? (
             <div className="p-12 text-center text-slate-500 text-sm">No drivers found in system.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-300">
-                <thead className="bg-slate-950/50 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
+                <thead className="bg-slate-950/60 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
                   <tr>
                     <th className="px-5 py-3.5">Full Name</th>
-                    <th className="px-5 py-3.5">Username</th>
                     <th className="px-5 py-3.5">Phone Number</th>
                     <th className="px-5 py-3.5">License Number</th>
                     <th className="px-5 py-3.5">Assigned Vehicle</th>
@@ -130,13 +118,17 @@ export default function DriversPage() {
                 <tbody className="divide-y divide-slate-800/60">
                   {drivers.map((d) => (
                     <tr key={d._id} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="px-5 py-4 font-medium text-slate-100">{d.fullName}</td>
-                      <td className="px-5 py-4 font-mono text-xs text-amber-400/90">{d.userId?.username || '—'}</td>
-                      <td className="px-5 py-4 text-slate-400">{d.phoneNumber}</td>
-                      <td className="px-5 py-4 font-mono text-xs">{d.licenseNumber}</td>
+                      <td className="px-5 py-4 font-medium text-slate-100 flex items-center space-x-2">
+                        <div className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-amber-400">
+                          {d.fullName?.[0]}
+                        </div>
+                        <span>{d.fullName}</span>
+                      </td>
+                      <td className="px-5 py-4 text-slate-400 font-mono text-xs">{d.phoneNumber}</td>
+                      <td className="px-5 py-4 font-mono text-xs font-semibold text-slate-200">{d.licenseNumber}</td>
                       <td className="px-5 py-4">
                         {d.assignedVehicleId ? (
-                          <span className="font-mono text-xs bg-slate-800 px-2 py-1 rounded text-slate-200">
+                          <span className="font-mono text-xs bg-slate-800 border border-slate-700 px-2 py-1 rounded text-amber-400">
                             {d.assignedVehicleId.plateNumber} ({d.assignedVehicleId.vehicleName})
                           </span>
                         ) : (
@@ -176,9 +168,12 @@ export default function DriversPage() {
 
         {/* Create Driver Modal */}
         {showModal && (
-          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-              <h2 className="text-lg font-bold text-slate-100 mb-4">Register New Driver Account</h2>
+              <h2 className="text-lg font-bold text-slate-100 mb-1">Add Managed Fleet Driver</h2>
+              <p className="text-xs text-slate-400 mb-4">
+                Drivers are managed records; authentication is handled via the Monitor.
+              </p>
 
               {error && <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-lg">{error}</div>}
 
@@ -191,7 +186,7 @@ export default function DriversPage() {
                     placeholder="e.g. Abebe Kebede"
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500/50"
                   />
                 </div>
 
@@ -200,10 +195,10 @@ export default function DriversPage() {
                   <input
                     type="text"
                     required
-                    placeholder="+251911..."
+                    placeholder="+251911223344"
                     value={formData.phoneNumber}
                     onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500/50"
                   />
                 </div>
 
@@ -212,21 +207,21 @@ export default function DriversPage() {
                   <input
                     type="text"
                     required
-                    placeholder="DL-998877"
+                    placeholder="ETH-DL-987654"
                     value={formData.licenseNumber}
                     onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500/50"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 mb-1">Assign Fleet Vehicle</label>
+                  <label className="block text-slate-300 mb-1">Assign Fleet Vehicle (Optional)</label>
                   <select
                     value={formData.assignedVehicleId}
                     onChange={(e) => setFormData({ ...formData, assignedVehicleId: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-amber-500/50"
                   >
-                    <option value="">Select vehicle assignment...</option>
+                    <option value="">No vehicle assignment</option>
                     {vehicles.map((v) => (
                       <option key={v._id} value={v._id}>
                         {v.plateNumber} - {v.vehicleName}
@@ -247,59 +242,10 @@ export default function DriversPage() {
                     type="submit"
                     className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg"
                   >
-                    Generate Credentials
+                    Save Driver
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
-        )}
-
-        {/* Credentials Popup Modal */}
-        {showCredsModal && createdCreds && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bg-slate-900 border border-amber-500/40 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-              <div className="flex items-center space-x-3 mb-4">
-                <ShieldAlert className="w-7 h-7 text-amber-500" />
-                <h2 className="text-lg font-bold text-slate-100">Driver Account Credentials</h2>
-              </div>
-
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 font-mono text-xs mb-4">
-                <div>
-                  <span className="text-slate-500 block text-[10px]">DRIVER NAME:</span>
-                  <span className="text-slate-200 font-bold">{createdCreds.driver?.fullName}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px]">USERNAME:</span>
-                  <span className="text-amber-400 font-bold text-sm">{createdCreds.credentials?.username}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px]">TEMPORARY PASSWORD:</span>
-                  <span className="text-rose-400 font-bold text-sm bg-rose-500/10 px-2 py-1 rounded inline-block">
-                    {createdCreds.credentials?.tempPassword}
-                  </span>
-                </div>
-              </div>
-
-              <p className="text-[11px] text-amber-400/90 mb-5 bg-amber-500/10 p-3 rounded-lg border border-amber-500/20">
-                ⚠️ Write down or copy these credentials now. The driver must change this password upon first login.
-              </p>
-
-              <div className="flex space-x-3">
-                <button
-                  onClick={copyCredentials}
-                  className="flex-1 flex items-center justify-center space-x-2 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs"
-                >
-                  {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  <span>{copied ? 'Copied!' : 'Copy Credentials'}</span>
-                </button>
-                <button
-                  onClick={() => setShowCredsModal(false)}
-                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs"
-                >
-                  Done
-                </button>
-              </div>
             </div>
           </div>
         )}

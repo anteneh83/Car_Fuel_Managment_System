@@ -1,11 +1,8 @@
-import bcrypt from 'bcryptjs';
 import { Driver, IDriver } from '../models/Driver';
-import { User } from '../models/User';
 import { Vehicle } from '../models/Vehicle';
 import { FuelTransaction } from '../models/FuelTransaction';
-import { DriverStatus, UserRole, VehicleStatus } from '../types';
+import { DriverStatus, VehicleStatus } from '../types';
 import { NotFoundError, AppError, ConflictError } from '../utils/errors';
-import { generateUsername, generateTempPassword } from '../utils/credentials';
 
 export class DriverService {
   static async getAll(query: {
@@ -29,7 +26,6 @@ export class DriverService {
     const total = await Driver.countDocuments(filter);
     const drivers = await Driver.find(filter)
       .populate('assignedVehicleId', 'vehicleName plateNumber')
-      .populate('userId', 'username isActive lastLoginAt')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
@@ -41,9 +37,7 @@ export class DriverService {
   }
 
   static async getById(id: string) {
-    const driver = await Driver.findById(id)
-      .populate('assignedVehicleId')
-      .populate('userId', 'username isActive lastLoginAt mustChangePassword');
+    const driver = await Driver.findById(id).populate('assignedVehicleId');
     if (!driver) throw new NotFoundError('Driver not found');
     return driver;
   }
@@ -55,6 +49,12 @@ export class DriverService {
     assignedVehicleId?: string;
     status?: DriverStatus;
   }) {
+    // Check if licenseNumber already exists
+    const existing = await Driver.findOne({ licenseNumber: data.licenseNumber.trim() });
+    if (existing) {
+      throw new ConflictError('A driver with this license number already exists');
+    }
+
     // Validate vehicle exists and is active
     if (data.assignedVehicleId) {
       const vehicle = await Vehicle.findById(data.assignedVehicleId);
@@ -64,53 +64,28 @@ export class DriverService {
       }
     }
 
-    // Generate credentials
-    const existingUsernames = (await User.find().select('username')).map(u => u.username);
-    const username = generateUsername(data.fullName, existingUsernames);
-    const tempPassword = generateTempPassword();
-    const passwordHash = await bcrypt.hash(tempPassword, 12);
-
-    // Create user
-    const user = await User.create({
-      username,
-      passwordHash,
-      role: UserRole.DRIVER,
-      isActive: true,
-      mustChangePassword: true,
+    // Create driver as managed entity (no user login account)
+    const driver = await Driver.create({
+      fullName: data.fullName.trim(),
+      phoneNumber: data.phoneNumber.trim(),
+      licenseNumber: data.licenseNumber.trim(),
+      assignedVehicleId: data.assignedVehicleId || null,
+      status: data.status || DriverStatus.ACTIVE,
     });
 
-    try {
-      // Create driver
-      const driver = await Driver.create({
-        fullName: data.fullName,
-        phoneNumber: data.phoneNumber,
-        licenseNumber: data.licenseNumber,
-        assignedVehicleId: data.assignedVehicleId || null,
-        status: data.status || DriverStatus.ACTIVE,
-        userId: user._id,
-      });
-
-      // Link driver to user
-      user.driverId = driver._id as any;
-      await user.save();
-
-      return {
-        driver,
-        credentials: {
-          username,
-          tempPassword, // Returned only once
-        },
-      };
-    } catch (error) {
-      // Rollback user creation if driver creation fails
-      await User.findByIdAndDelete(user._id);
-      throw error;
-    }
+    return { driver };
   }
 
   static async update(id: string, data: Partial<IDriver>) {
     const driver = await Driver.findById(id);
     if (!driver) throw new NotFoundError('Driver not found');
+
+    if (data.licenseNumber && data.licenseNumber !== driver.licenseNumber) {
+      const existing = await Driver.findOne({ licenseNumber: data.licenseNumber.trim(), _id: { $ne: id } });
+      if (existing) {
+        throw new ConflictError('A driver with this license number already exists');
+      }
+    }
 
     if (data.assignedVehicleId) {
       const vehicle = await Vehicle.findById(data.assignedVehicleId);
@@ -129,16 +104,7 @@ export class DriverService {
     if (!driver) throw new NotFoundError('Driver not found');
 
     driver.status = status;
-    await driver.save();
-
-    // Also update user isActive status
-    if (status === DriverStatus.INACTIVE || status === DriverStatus.SUSPENDED) {
-      await User.findByIdAndUpdate(driver.userId, { isActive: false });
-    } else if (status === DriverStatus.ACTIVE) {
-      await User.findByIdAndUpdate(driver.userId, { isActive: true });
-    }
-
-    return driver;
+    return driver.save();
   }
 
   static async getTransactions(driverId: string, query: { page?: number; limit?: number }) {
@@ -146,6 +112,7 @@ export class DriverService {
     const total = await FuelTransaction.countDocuments({ driverId });
     const transactions = await FuelTransaction.find({ driverId })
       .populate('vehicleId', 'vehicleName plateNumber')
+      .populate('monitorId', 'username fullName')
       .sort({ fuelDate: -1 })
       .skip((page - 1) * limit)
       .limit(limit);

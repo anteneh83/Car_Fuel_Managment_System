@@ -8,6 +8,7 @@ import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth.routes';
 import vehicleRoutes from './routes/vehicle.routes';
 import driverRoutes from './routes/driver.routes';
+import fuelRequestRoutes from './routes/fuelRequest.routes';
 import fuelTransactionRoutes from './routes/fuelTransaction.routes';
 import { dashboardRoutes, fraudRoutes, notificationRoutes, auditRoutes } from './routes/dashboard.routes';
 
@@ -68,6 +69,7 @@ app.use(cookieParser());
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/vehicles', vehicleRoutes);
 app.use('/api/v1/drivers', driverRoutes);
+app.use('/api/v1/fuel-requests', fuelRequestRoutes);
 app.use('/api/v1/fuel-transactions', fuelTransactionRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/fraud-alerts', fraudRoutes);

@@ -10,6 +10,7 @@ import {
   Truck,
   Users,
   Fuel,
+  ClipboardCheck,
   AlertTriangle,
   FileBarChart,
   Bell,
@@ -26,29 +27,35 @@ export function OwnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const [pendingRequests, setPendingRequests] = useState(0);
 
   useEffect(() => {
-    const fetchNotifications = async () => {
+    const fetchCounters = async () => {
       try {
-        const res = await api.get('/notifications?unreadOnly=true');
-        setUnreadAlerts(res.data.unreadCount || 0);
+        const [notifRes, sumRes] = await Promise.all([
+          api.get('/notifications?unreadOnly=true'),
+          api.get('/dashboard/summary'),
+        ]);
+        setUnreadAlerts(notifRes.data.unreadCount || 0);
+        setPendingRequests(sumRes.data.data?.pendingRequests || 0);
       } catch {
         // ignore
       }
     };
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
+    fetchCounters();
+    const interval = setInterval(fetchCounters, 30000);
     return () => clearInterval(interval);
   }, []);
 
   const navItems = [
     { name: 'Dashboard', href: '/owner/dashboard', icon: LayoutDashboard },
+    { name: 'Fuel Requests', href: '/owner/requests', icon: ClipboardCheck, badge: pendingRequests, badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+    { name: 'Fuel Transactions', href: '/owner/transactions', icon: Fuel },
     { name: 'Vehicles', href: '/owner/vehicles', icon: Truck },
     { name: 'Drivers', href: '/owner/drivers', icon: Users },
-    { name: 'Fuel Transactions', href: '/owner/transactions', icon: Fuel },
-    { name: 'Fraud Alerts', href: '/owner/fraud-alerts', icon: AlertTriangle, badge: unreadAlerts },
+    { name: 'Fraud Alerts', href: '/owner/fraud-alerts', icon: AlertTriangle, badge: unreadAlerts, badgeColor: 'bg-rose-500/20 text-rose-400 border-rose-500/30' },
     { name: 'Reports', href: '/owner/reports', icon: FileBarChart },
-    { name: 'Notifications', href: '/owner/notifications', icon: Bell, badge: unreadAlerts },
+    { name: 'Notifications', href: '/owner/notifications', icon: Bell, badge: unreadAlerts, badgeColor: 'bg-rose-500/20 text-rose-400 border-rose-500/30' },
     { name: 'Audit Logs', href: '/owner/audit-logs', icon: History },
     { name: 'Settings', href: '/owner/settings', icon: Settings },
   ];
@@ -104,7 +111,7 @@ export function OwnerLayout({ children }: { children: React.ReactNode }) {
                     <span>{item.name}</span>
                   </div>
                   {item.badge && item.badge > 0 ? (
-                    <span className="px-2 py-0.5 text-xs bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-full font-bold">
+                    <span className={`px-2 py-0.5 text-xs border rounded-full font-bold ${item.badgeColor || 'bg-slate-800 text-slate-300'}`}>
                       {item.badge}
                     </span>
                   ) : null}
@@ -117,11 +124,11 @@ export function OwnerLayout({ children }: { children: React.ReactNode }) {
         <div className="p-4 border-t border-slate-800">
           <div className="flex items-center space-x-3 mb-3 px-2">
             <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm border border-amber-500/30">
-              O
+              A
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-medium text-slate-200 truncate">{user?.username}</p>
-              <p className="text-xs text-amber-400/80 font-mono">OWNER / ADMIN</p>
+              <p className="text-sm font-medium text-slate-200 truncate">{user?.fullName || user?.username}</p>
+              <p className="text-xs text-amber-400/80 font-mono">ADMIN / OWNER</p>
             </div>
           </div>
           <button

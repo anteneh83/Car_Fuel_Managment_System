@@ -7,7 +7,6 @@ export interface IDriver extends Document {
   licenseNumber: string;
   assignedVehicleId?: mongoose.Types.ObjectId;
   status: DriverStatus;
-  userId: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,12 +38,6 @@ const DriverSchema = new Schema<IDriver>(
       type: String,
       enum: Object.values(DriverStatus),
       default: DriverStatus.ACTIVE,
-    },
-    userId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-      unique: true,
     },
   },
   { timestamps: true }
